@@ -51,7 +51,7 @@ export function captureArea() {
                 const uri = uriVariant.deep_unpack();
 
                 try {
-                    const filePath = GLib.filename_from_uri(uri, null)[0];
+                    const [filePath] = GLib.filename_from_uri(uri);
                     resolve(filePath);
                 } catch (e) {
                     resolve(decodeURIComponent(uri.slice(7)));
@@ -82,7 +82,6 @@ export function captureArea() {
                 {
                     'handle_token': new GLib.Variant('s', handleToken),
                     'interactive':  new GLib.Variant('b', true),
-                    'target':       new GLib.Variant('u', 4),
                 },
             ]);
 

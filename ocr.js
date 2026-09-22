@@ -34,23 +34,34 @@ function preprocessImage(inputPath, outputPath) {
     }
     const isDark = (totalLum / totalPx) < 128;
 
+    const modified = new Uint8Array(pixels);
     for (let y = 0; y < height; y++) {
         const row = y * rowstride;
         for (let x = 0; x < width; x++) {
             const off = row + x * nChan;
             let gray = Math.round(
-                0.299 * pixels[off] +
-                0.587 * pixels[off + 1] +
-                0.114 * pixels[off + 2],
+                0.299 * modified[off] +
+                0.587 * modified[off + 1] +
+                0.114 * modified[off + 2],
             );
             if (isDark) gray = 255 - gray;
-            pixels[off]     = gray;
-            pixels[off + 1] = gray;
-            pixels[off + 2] = gray;
+            modified[off]     = gray;
+            modified[off + 1] = gray;
+            modified[off + 2] = gray;
         }
     }
 
-    pixbuf.savev(outputPath, 'png', [], []);
+    const newPixbuf = GdkPixbuf.Pixbuf.new_from_bytes(
+        new GLib.Bytes(modified),
+        GdkPixbuf.Colorspace.RGB,
+        pixbuf.get_has_alpha(),
+        8,
+        width,
+        height,
+        rowstride,
+    );
+
+    newPixbuf.savev(outputPath, 'png', [], []);
 }
 
 async function runTesseract(imagePath, lang = 'eng', psm = 6) {
@@ -59,7 +70,7 @@ async function runTesseract(imagePath, lang = 'eng', psm = 6) {
         Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
     );
 
-    const [, stdout, stderr] = await proc.communicate_utf8_async(null, null);
+    const [stdout, stderr] = await proc.communicate_utf8_async(null, null);
 
     if (!proc.get_successful()) {
         const code = proc.get_exit_status();
