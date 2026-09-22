@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.textsnap"
+          path="/org/gnome/shell/extensions/textsnap/">
+
+    <key name="ocr-shortcut" type="as">
+      <default><![CDATA[['<Super><Shift>t']]]></default>
+      <summary>OCR capture shortcut</summary>
+      <description>Keyboard shortcut to activate screen region OCR</description>
+    </key>
+
+    <key name="ocr-language" type="s">
+      <default>'eng'</default>
+      <summary>OCR language</summary>
+      <description>Tesseract language code</description>
+    </key>
+
+    <key name="ocr-psm" type="i">
+      <default>6</default>
+      <summary>Page segmentation mode</summary>
+      <description>Tesseract PSM</description>
+    </key>
+
+    <key name="preprocess-enabled" type="b">
+      <default>true</default>
+      <summary>Enable image preprocessing</summary>
+      <description>Auto-detect dark backgrounds and apply grayscale, inversion, and 2x upscaling</description>
+    </key>
+
+  </schema>
+</schemalist>
