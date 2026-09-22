@@ -1,4 +1,3 @@
-
 import Gio from 'gi://Gio';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
@@ -11,7 +10,7 @@ import { preprocessAndOCR } from './ocr.js';
 
 const KEYBINDING = 'ocr-shortcut';
 
-export default class ScreenOcrExtension extends Extension {
+export default class TextSnapExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
 
@@ -22,30 +21,26 @@ export default class ScreenOcrExtension extends Extension {
             Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
             () => {
                 this._onShortcutActivated().catch(e => {
-                    console.error(`[Screen OCR] ${e.message}`);
-                    Main.notifyError('Screen OCR', e.message);
+                    console.error(`[TextSnap] ${e.message}`);
+                    Main.notifyError('TextSnap', e.message);
                 });
             },
         );
 
-        console.log('[Screen OCR] Extension enabled');
+        console.log('[TextSnap] Extension enabled');
     }
 
     disable() {
         Main.wm.removeKeybinding(KEYBINDING);
         this._settings = null;
-        console.log('[Screen OCR] Extension disabled');
+        console.log('[TextSnap] Extension disabled');
     }
 
-    // ── Main pipeline
-
     async _onShortcutActivated() {
-        // 1. Capture 
         const imagePath = await captureArea();
-        if (!imagePath) return; // user cancelled
+        if (!imagePath) return;
 
         try {
-            // 2. OCR 
             const lang       = this._settings.get_string('ocr-language');
             const psm        = this._settings.get_int('ocr-psm');
             const preprocess = this._settings.get_boolean('preprocess-enabled');
@@ -53,33 +48,28 @@ export default class ScreenOcrExtension extends Extension {
             const text = await preprocessAndOCR(imagePath, lang, psm, preprocess);
 
             if (!text) {
-                Main.notify('Screen OCR', 'No text detected in selected area.');
+                Main.notify('TextSnap', 'No text detected in selected area.');
                 return;
             }
 
-            // 3. Clipboard 
             St.Clipboard.get_default().set_text(
                 St.ClipboardType.CLIPBOARD,
                 text,
             );
 
-            // 4. Notification 
             const lines   = text.split('\n').length;
             const chars   = text.length;
             const preview = text.length > 80
                 ? text.substring(0, 80) + '…'
                 : text;
             Main.notify(
-                'Screen OCR',
+                'TextSnap',
                 `Copied ${lines} line(s), ${chars} chars:\n${preview}`,
             );
         } finally {
-            // 5. Clean up portal screenshot 
             this._deleteFile(imagePath);
         }
     }
-
-    // ── Helpers s
 
     _deleteFile(path) {
         try {
