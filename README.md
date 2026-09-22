@@ -2,7 +2,7 @@
 
 TextSnap is a high-performance, native GNOME Shell extension for instant screen text extraction (OCR), inspired by Microsoft PowerToys Text Extractor.
 
-It integrates directly into GNOME Shell on Wayland, using GNOME's native area selection tool to crop and extract text straight to your clipboard—with zero screen flashes, no shutter sounds, and no image files saved to your disk.
+It integrates directly into GNOME Shell on Wayland, using GNOME's native area selection tool to crop and extract text straight to your clipboard.
 
 ---
 
