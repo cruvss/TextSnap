@@ -16,6 +16,7 @@
     </key>
 
     <key name="ocr-psm" type="i">
+      <range min="0" max="13"/>
       <default>6</default>
       <summary>Page segmentation mode</summary>
       <description>Tesseract PSM</description>

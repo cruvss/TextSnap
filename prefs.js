@@ -158,11 +158,11 @@ export default class TextSnapPreferences extends ExtensionPreferences {
             return true;
         });
 
-        dialog.choose(parentWindow, null, () => {});
-        parentWindow.add_controller(controller);
-
-        setTimeout(() => {
-            try { parentWindow.remove_controller(controller); } catch (_) {}
-        }, 500);
+        dialog.add_controller(controller);
+        dialog.choose(parentWindow, null, () => {
+            try {
+                dialog.remove_controller(controller);
+            } catch (_) { }
+        });
     }
 }

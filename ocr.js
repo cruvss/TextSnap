@@ -2,11 +2,13 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GdkPixbuf from 'gi://GdkPixbuf';
 
-Gio._promisify(
-    Gio.Subprocess.prototype,
-    'communicate_utf8_async',
-    'communicate_utf8_finish',
-);
+try {
+    Gio._promisify(
+        Gio.Subprocess.prototype,
+        'communicate_utf8_async',
+        'communicate_utf8_finish',
+    );
+} catch (_) { }
 
 function preprocessImage(inputPath, outputPath) {
     let pixbuf = GdkPixbuf.Pixbuf.new_from_file(inputPath);
@@ -64,13 +66,16 @@ function preprocessImage(inputPath, outputPath) {
     newPixbuf.savev(outputPath, 'png', [], []);
 }
 
-async function runTesseract(imagePath, lang = 'eng', psm = 6) {
+async function runTesseract(imagePath, lang = 'eng', psm = 6, cancellable = null) {
+    const validLang = /^[a-zA-Z0-9_+]+$/.test(lang) ? lang : 'eng';
+    const validPsm = (Number.isInteger(psm) && psm >= 0 && psm <= 13) ? psm : 6;
+
     const proc = Gio.Subprocess.new(
-        ['tesseract', imagePath, 'stdout', '-l', lang, '--psm', String(psm)],
+        ['tesseract', imagePath, 'stdout', '-l', validLang, '--psm', String(validPsm)],
         Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
     );
 
-    const [stdout, stderr] = await proc.communicate_utf8_async(null, null);
+    const [stdout, stderr] = await proc.communicate_utf8_async(null, cancellable);
 
     if (!proc.get_successful()) {
         const code = proc.get_exit_status();
@@ -89,13 +94,13 @@ function cleanText(raw) {
         .trim();
 }
 
-export async function preprocessAndOCR(imagePath, lang, psm, preprocess) {
+export async function preprocessAndOCR(imagePath, lang, psm, preprocess, cancellable = null) {
     let ocrInput = imagePath;
     let tmpFile  = null;
 
     if (preprocess) {
-        tmpFile  = GLib.build_filenamev([
-            GLib.get_tmp_dir(),
+        tmpFile = GLib.build_filenamev([
+            GLib.get_user_runtime_dir(),
             `textsnap-pre-${GLib.get_monotonic_time()}.png`,
         ]);
         try {
@@ -108,12 +113,12 @@ export async function preprocessAndOCR(imagePath, lang, psm, preprocess) {
     }
 
     try {
-        let text = await runTesseract(ocrInput, lang, psm);
+        let text = await runTesseract(ocrInput, lang, psm, cancellable);
         text = cleanText(text);
 
         if (!text && psm !== 3) {
-            console.log('[TextSnap] No text with configured PSM, retrying with --psm 3');
-            text = cleanText(await runTesseract(ocrInput, lang, 3));
+            console.debug('[TextSnap] No text with configured PSM, retrying with --psm 3');
+            text = cleanText(await runTesseract(ocrInput, lang, 3, cancellable));
         }
 
         return text;

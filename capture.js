@@ -6,7 +6,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 export function captureArea() {
     return new Promise(resolve => {
         const ui = Main.screenshotUI;
-        if (!ui) {
+        if (!ui || ui._opened) {
             resolve(null);
             return;
         }
@@ -45,7 +45,7 @@ export function captureArea() {
                     const [x, y, w, h] = geometry ?? [0, 0, -1, -1];
 
                     targetPath = GLib.build_filenamev([
-                        GLib.get_tmp_dir(),
+                        GLib.get_user_runtime_dir(),
                         `textsnap-cap-${GLib.get_monotonic_time()}.png`,
                     ]);
 

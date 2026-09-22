@@ -13,6 +13,8 @@ const KEYBINDING = 'ocr-shortcut';
 export default class TextSnapExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
+        this._isCapturing = false;
+        this._cancellable = new Gio.Cancellable();
 
         Main.wm.addKeybinding(
             KEYBINDING,
@@ -26,26 +28,32 @@ export default class TextSnapExtension extends Extension {
                 });
             },
         );
-
-        console.log('[TextSnap] Extension enabled');
     }
 
     disable() {
         Main.wm.removeKeybinding(KEYBINDING);
+        if (this._cancellable) {
+            this._cancellable.cancel();
+            this._cancellable = null;
+        }
+        this._isCapturing = false;
         this._settings = null;
-        console.log('[TextSnap] Extension disabled');
     }
 
     async _onShortcutActivated() {
-        const imagePath = await captureArea();
-        if (!imagePath) return;
+        if (this._isCapturing) return;
+        this._isCapturing = true;
 
+        let imagePath = null;
         try {
+            imagePath = await captureArea();
+            if (!imagePath) return;
+
             const lang       = this._settings.get_string('ocr-language');
             const psm        = this._settings.get_int('ocr-psm');
             const preprocess = this._settings.get_boolean('preprocess-enabled');
 
-            const text = await preprocessAndOCR(imagePath, lang, psm, preprocess);
+            const text = await preprocessAndOCR(imagePath, lang, psm, preprocess, this._cancellable);
 
             if (!text) {
                 Main.notify('TextSnap', 'No text detected in selected area.');
@@ -67,7 +75,10 @@ export default class TextSnapExtension extends Extension {
                 `Copied ${lines} line(s), ${chars} chars:\n${preview}`,
             );
         } finally {
-            this._deleteFile(imagePath);
+            if (imagePath) {
+                this._deleteFile(imagePath);
+            }
+            this._isCapturing = false;
         }
     }
 
