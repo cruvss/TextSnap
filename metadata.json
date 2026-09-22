@@ -1,0 +1,10 @@
+{
+    "uuid": "textsnap@cruvss.github.io",
+    "name": "TextSnap",
+    "description": "Select a screen region and extract text. Microsoft PowerToys Text extractor for GNOME",
+    "shell-version": ["45","46","47","48","49","50"],
+    "settings-schema": "org.gnome.shell.extensions.textsnap",
+    "version": 1,
+    "url": "https://github.com/cruvss/TextSnap-for-GNOME"
+
+}
