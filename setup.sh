@@ -5,8 +5,10 @@ EXT_UUID="textsnap@cruvss.github.io"
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 EXT_DEST_DIR="$HOME/.local/share/gnome-shell/extensions/$EXT_UUID"
 
-echo "Installing dependencies..."
-sudo dnf install -y tesseract tesseract-langpack-eng glib2-devel
+if ! command -v tesseract &>/dev/null; then
+    echo "Installing dependencies..."
+    sudo dnf install -y tesseract tesseract-langpack-eng glib2-devel
+fi
 
 echo "Installing extension to $EXT_DEST_DIR..."
 mkdir -p "$EXT_DEST_DIR/schemas"

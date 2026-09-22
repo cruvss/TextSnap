@@ -1,108 +1,79 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 export function captureArea() {
-    return new Promise((resolve, reject) => {
-        const connection = Gio.DBus.session;
+    return new Promise(resolve => {
+        const ui = Main.screenshotUI;
+        if (!ui) {
+            resolve(null);
+            return;
+        }
 
-        const senderName = connection.get_unique_name().substring(1).replaceAll('.', '_');
-        const handleToken = `textsnap_${Math.floor(Math.random() * 1e8)}`;
-        const requestPath = `/org/freedesktop/portal/desktop/request/${senderName}/${handleToken}`;
-
-        let signalId = null;
-        let timeoutId = null;
+        const origSaveScreenshot = ui._saveScreenshot;
+        let closedId = 0;
+        let captured = false;
 
         const cleanup = () => {
-            if (signalId !== null) {
-                connection.signal_unsubscribe(signalId);
-                signalId = null;
+            if (closedId && ui) {
+                ui.disconnect(closedId);
+                closedId = 0;
             }
-            if (timeoutId !== null) {
-                GLib.source_remove(timeoutId);
-                timeoutId = null;
+            if (origSaveScreenshot && ui) {
+                ui._saveScreenshot = origSaveScreenshot;
             }
         };
 
-        signalId = connection.signal_subscribe(
-            'org.freedesktop.portal.Desktop',
-            'org.freedesktop.portal.Request',
-            'Response',
-            requestPath,
-            null,
-            Gio.DBusSignalFlags.NONE,
-            (_conn, _sender, _path, _iface, _signal, params) => {
-                cleanup();
-
-                const responseCode = params.get_child_value(0).get_uint32();
-
-                if (responseCode !== 0) {
-                    resolve(null);
-                    return;
-                }
-
-                const results = params.get_child_value(1);
-                const uriVariant = results.lookup_value('uri', null);
-
-                if (!uriVariant) {
-                    reject(new Error('Portal response missing URI'));
-                    return;
-                }
-
-                const uri = uriVariant.deep_unpack();
-
-                try {
-                    const [filePath] = GLib.filename_from_uri(uri);
-                    resolve(filePath);
-                } catch (e) {
-                    resolve(decodeURIComponent(uri.slice(7)));
-                }
-            },
-        );
-
-        timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 60, () => {
-            timeoutId = null;
+        closedId = ui.connect('closed', () => {
             cleanup();
-            resolve(null);
-            return GLib.SOURCE_REMOVE;
+            if (!captured) {
+                resolve(null);
+            }
         });
 
-        try {
-            const proxy = Gio.DBusProxy.new_for_bus_sync(
-                Gio.BusType.SESSION,
-                Gio.DBusProxyFlags.DO_NOT_AUTO_START,
-                null,
-                'org.freedesktop.portal.Desktop',
-                '/org/freedesktop/portal/desktop',
-                'org.freedesktop.portal.Screenshot',
-                null,
-            );
-
-            const params = new GLib.Variant('(sa{sv})', [
-                '',
-                {
-                    'handle_token': new GLib.Variant('s', handleToken),
-                    'interactive':  new GLib.Variant('b', true),
-                },
-            ]);
-
-            proxy.call(
-                'Screenshot',
-                params,
-                Gio.DBusCallFlags.NONE,
-                -1,
-                null,
-                (_proxy, res) => {
-                    try {
-                        _proxy.call_finish(res);
-                    } catch (e) {
-                        cleanup();
-                        reject(e);
-                    }
-                },
-            );
-        } catch (e) {
+        ui._saveScreenshot = async function() {
+            captured = true;
             cleanup();
-            reject(e);
-        }
+
+            let targetPath = null;
+            try {
+                const content = this._stageScreenshot.get_content();
+                if (content) {
+                    const texture = content.get_texture();
+                    const geometry = this._getSelectedGeometry(true);
+                    const [x, y, w, h] = geometry ?? [0, 0, -1, -1];
+
+                    targetPath = GLib.build_filenamev([
+                        GLib.get_tmp_dir(),
+                        `textsnap-cap-${GLib.get_monotonic_time()}.png`,
+                    ]);
+
+                    const file = Gio.File.new_for_path(targetPath);
+                    const stream = file.replace(null, false, Gio.FileCreateFlags.NONE, null);
+
+                    await Shell.Screenshot.composite_to_stream(
+                        texture,
+                        x, y, w, h,
+                        this._scale,
+                        null, 0, 0, 1,
+                        stream
+                    );
+                    stream.close(null);
+                }
+            } catch (e) {
+                console.error(`[TextSnap] Capture failed: ${e.message}`);
+                targetPath = null;
+            }
+
+            this.close();
+            resolve(targetPath);
+        };
+
+        ui.open().catch(err => {
+            cleanup();
+            console.error(`[TextSnap] Failed to open screenshot UI: ${err.message}`);
+            resolve(null);
+        });
     });
 }
